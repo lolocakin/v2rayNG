@@ -96,6 +96,12 @@ class MainActivity : HelperBaseComponentActivity() {
         mainViewModel.onAction(MainAction.Initialize)
 
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
+           // 首次打开自动注入专属 VLESS Reality 节点
+        if (com.v2ray.ang.util.MmkvManager.decodeServerList().isEmpty()) {
+            val defaultNode = "vless://4a320dc4-d409-4cd6-8d21-f50d4345b0d3@69.8.130.115:53299?encryption=none&flow=xtls-rprx-vision&security=reality&sni=aws.amazon.com&fp=chrome&pbk=7cJXoxNwX6sSS5mr5pUCO-0ip_4IacPbh6gjlS6VFSQ&sid=2dafc1f1&type=tcp&headerType=none&spx=%2Fchaehgmt6x#Geto-Reality-53299"
+            com.v2ray.ang.util.AngConfigManager.importBatchConfig(defaultNode)
+        }
+
     }
 
     @Composable
