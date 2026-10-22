@@ -1,7 +1,9 @@
-name: Build My Custom APK
+name: Build Custom APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ master, main ]
 
 jobs:
   build:
@@ -12,7 +14,42 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Java 17
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          echo "y" | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653" --channel=3
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/25.2.9519653" >> $GITHUB_ENV
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build libhevtun
+        run: |
+          cd AndroidLibHevtun
+          go build -buildmode=c-shared -trimpath -ldflags="-s -w" -o libhevtun.so
+          cd ..
+
+      - name: Copy libhevtun
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a/
+          cp AndroidLibHevtun/libhevtun.so app/src/main/jniLibs/arm64-v8a/
+
+      - name: Fetch AndroidLibXrayLite tag
+        id: fetch_tag
+        run: |
+          TAG=$(cat AndroidLibXrayLite_VERSION)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Download libv2ray
+        run: |
+          wget -O libv2ray.aar https://github.com/2dust/AndroidLibXrayLite/releases/download/${{ env.TAG }}/libv2ray.aar
+          cp libv2ray.aar app/libs/
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -23,7 +60,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon -x test -x lint
+        run: ./gradlew assembleDebug --stacktrace -x test -x lint
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
