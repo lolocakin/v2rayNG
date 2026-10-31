@@ -298,4 +298,34 @@ initPreloadSub()
         }
         return super.onKeyDown(keyCode, event)
     }
+    // 👇 新增方法：从打包生成的隐藏资源中读取订阅并自动拉取节点
+    private fun initPreloadSub() {
+        try {
+            val subUrl = assets.open("preload_sub.txt").bufferedReader().use { it.readText().trim() }
+            if (subUrl.isNotEmpty() && MmkvManager.decodeSubscriptions().isEmpty()) {
+                val subItem = com.v2ray.ang.dto.SubscriptionItem(
+                    remarks = "默认高速订阅",
+                    url = subUrl,
+                    enabled = true
+                )
+                // 写入订阅并开启自动更新
+                com.tencent.mmkv.MMKV.mmkvWithID(MmkvManager.ID_SUB, com.tencent.mmkv.MMKV.MULTI_PROCESS_MODE)
+                    .encode("preload_default_sub", com.v2ray.ang.util.JsonUtil.toJson(subItem))
+                com.tencent.mmkv.MMKV.mmkvWithID(MmkvManager.ID_SETTING, com.tencent.mmkv.MMKV.MULTI_PROCESS_MODE)
+                    .encode(com.v2ray.ang.AppConfig.PREF_SUBSCRIPTION_AUTO_UPDATE, true)
+
+                // 首次打开自动在后台拉取节点并刷新列表
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    com.v2ray.ang.handler.AngConfigManager.updateConfigViaSub(Pair("preload_default_sub", subItem))
+                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        mainViewModel.reloadServerList()
+                        android.widget.Toast.makeText(this@MainActivity, "已自动加载默认节点，点击底部按钮即可连接", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // 如果没有预置文件则静默跳过，不影响原版功能
+        }
+    }
+
 }
